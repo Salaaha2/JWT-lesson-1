@@ -2,17 +2,30 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
+// handle errors
 const handleErrors = (err) => {
     console.log(err.message, err.code);
-    let errors = {email: '', password: ''};
+    let errors = { email: '', password: '' };
 
-    if(err.code === 11000) {
+    // incorrect email
+    if (err.message === 'incorrect email') {
+        errors.email = 'That email is not registered';
+    }
+
+    // incorrect password
+    if (err.message === 'incorrect password') {
+        errors.password = 'That password is incorrect';
+    }
+
+    // Duplication email errors
+    if (err.code === 11000) {
         errors.email = 'That email is already in use!';
         return errors;
     }
 
+    // Validation errors
     if (err.message.includes('user validation failed')) {
-        Object.values(err.errors).forEach(({properties}) => {
+        Object.values(err.errors).forEach(({ properties }) => {
             errors[properties.path] = properties.message
         })
     }
@@ -20,7 +33,8 @@ const handleErrors = (err) => {
     return errors;
 }
 
-const maxAge = 3 * 24 * 60* 60;
+// Creaate json Web token
+const maxAge = 3 * 24 * 60 * 60;
 const createToken = (id) => {
     // returns the token
     return jwt.sign({ id }, 'secret message', {
@@ -36,32 +50,42 @@ module.exports.login_get = (req, res) => {
     res.render('login');
 }
 module.exports.signup_post = async (req, res) => {
-    const {email, password} = req.body;
+    const { email, password } = req.body;
 
     try {
         // Using async needs to add await
-        const user =  await User.create({ email, password });
+        const user = await User.create({ email, password });
         const token = createToken(user._id);
-        res.cookie('jwt', token, {httpOnly: true, maxAge: maxAge * 1000});
+        res.cookie('jwt', token, { httpOnly: true, maxAge: maxAge * 1000 });
         res.status(201).json({ user: user._id });
     } catch (err) {
         const errors = handleErrors(err);
-        res.status(400).json({errors});
+        res.status(400).json({ errors });
     }
 
-    console.log(email, password)
+    // console.log(email, password)
     // res.send('new signup');
 }
 module.exports.login_post = async (req, res) => {
-    const {email, password} = req.body;
+    const { email, password } = req.body;
 
     try {
         const user = await User.length(email, password);
+        res.cookie('jwt', token, { httpOnly: true, maxAge: maxAge * 1000 });
         res.status(200).json({ user: user._id });
+        
     } catch (err) {
+        const errors = handleErrors(err);
         res.status(400).json({});
     }
     // split data passed in JSON
     // console.log(email, password)
     // res.send('user login');
+}
+
+module.exports.logout_get = (req, res) => {
+    // Delete jwt cookie -> Replace with blank cookie
+    // call token, replace with empty string() that has a life of 1 milsecond
+    res.cookie('jwt', '', { maxAge: 1 });
+    res.redirect('/');
 }
